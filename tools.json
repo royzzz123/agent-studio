@@ -1,0 +1,725 @@
+{
+  "server": {
+    "name": "freshdesk",
+    "transport": "stdio",
+    "command": "freshdesk-connector serve"
+  },
+  "tools": [
+    {
+      "name": "list_tickets",
+      "description": "List tickets newest-first with pagination. Use search_tickets when filtering by status, priority, tag, agent or dates.",
+      "inputSchema": {
+        "properties": {
+          "view": {
+            "default": "recent",
+            "description": "'recent' = all tickets (created in the last 30 days unless updated_since is set). Other values are Freshdesk's predefined views, relative to the API key's agent.",
+            "enum": [
+              "recent",
+              "new_and_my_open",
+              "watching",
+              "spam",
+              "deleted"
+            ],
+            "title": "View",
+            "type": "string"
+          },
+          "updated_since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "ISO date/time; only tickets updated on/after this (also lifts the 30-day window).",
+            "title": "Updated Since"
+          },
+          "order_by": {
+            "default": "updated_at",
+            "enum": [
+              "created_at",
+              "updated_at",
+              "due_by",
+              "status"
+            ],
+            "title": "Order By",
+            "type": "string"
+          },
+          "order_type": {
+            "default": "desc",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "title": "Order Type",
+            "type": "string"
+          },
+          "page": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "per_page": {
+            "default": 30,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Per Page",
+            "type": "integer"
+          },
+          "include_requester": {
+            "default": false,
+            "description": "Embed requester name/email (costs 1 extra API credit).",
+            "title": "Include Requester",
+            "type": "boolean"
+          }
+        },
+        "title": "list_ticketsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "list_ticketsDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_ticket",
+      "description": "Get one ticket in full: description, custom fields, requester, SLA/response stats, and recent conversations.",
+      "inputSchema": {
+        "properties": {
+          "ticket_id": {
+            "description": "Freshdesk ticket ID (the number shown as #1234).",
+            "minimum": 1,
+            "title": "Ticket Id",
+            "type": "integer"
+          },
+          "include_conversations": {
+            "default": true,
+            "description": "Embed up to 10 most recent replies/notes.",
+            "title": "Include Conversations",
+            "type": "boolean"
+          },
+          "include_requester": {
+            "default": true,
+            "title": "Include Requester",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ticket_id"
+        ],
+        "title": "get_ticketArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "get_ticketDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list_ticket_conversations",
+      "description": "List the full reply/note thread of a ticket, oldest first. 'author' is customer or agent; private notes are internal-only.",
+      "inputSchema": {
+        "properties": {
+          "ticket_id": {
+            "minimum": 1,
+            "title": "Ticket Id",
+            "type": "integer"
+          },
+          "page": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "per_page": {
+            "default": 30,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Per Page",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ticket_id"
+        ],
+        "title": "list_ticket_conversationsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "list_ticket_conversationsDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "search_tickets",
+      "description": "Search tickets by structured filters (all filters are ANDed). Not for free-text keywords; use find_tickets_by_text for that.\n        Results can lag a few minutes behind very recent changes (search index delay).",
+      "inputSchema": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Any of: open, pending, resolved, closed (or numeric custom status codes). Combined with OR.",
+            "title": "Status"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Any of: low, medium, high, urgent. Combined with OR.",
+            "title": "Priority"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Ticket has any of these tags.",
+            "title": "Tags"
+          },
+          "ticket_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Exact ticket type, e.g. 'Refund'. See describe_ticket_fields for valid types.",
+            "title": "Ticket Type"
+          },
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Assigned agent ID (see list_agents).",
+            "title": "Agent Id"
+          },
+          "unassigned": {
+            "default": false,
+            "description": "Only tickets with no agent assigned.",
+            "title": "Unassigned",
+            "type": "boolean"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Assigned group ID (see list_groups).",
+            "title": "Group Id"
+          },
+          "created_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "YYYY-MM-DD, inclusive.",
+            "title": "Created After"
+          },
+          "created_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "YYYY-MM-DD, inclusive.",
+            "title": "Created Before"
+          },
+          "updated_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated After"
+          },
+          "updated_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated Before"
+          },
+          "due_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Resolution due on/before YYYY-MM-DD (find SLA risks).",
+            "title": "Due Before"
+          },
+          "custom_fields": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Custom field filters, e.g. {'order_id': 'ORD-1001'}; names from describe_ticket_fields.",
+            "title": "Custom Fields"
+          },
+          "raw_query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Advanced: a Freshdesk filter query, e.g. \"priority:4 AND (status:2 OR status:3)\". Overrides the other filters.",
+            "title": "Raw Query"
+          },
+          "page": {
+            "default": 1,
+            "description": "30 results per page; Freshdesk returns at most 10 pages.",
+            "maximum": 10,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          }
+        },
+        "title": "search_ticketsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "search_ticketsDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "find_tickets_by_text",
+      "description": "Keyword search over ticket subjects (optionally descriptions) of recently updated tickets.\n        Freshdesk's API has no free-text ticket search, so this scans the most recently updated tickets client-side; older tickets are not covered.",
+      "inputSchema": {
+        "properties": {
+          "text": {
+            "description": "Words to look for (case-insensitive; all words must appear).",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Text",
+            "type": "string"
+          },
+          "updated_within_days": {
+            "default": 30,
+            "maximum": 90,
+            "minimum": 1,
+            "title": "Updated Within Days",
+            "type": "integer"
+          },
+          "max_tickets_scanned": {
+            "default": 300,
+            "description": "Upper bound on tickets scanned (100 per API call).",
+            "maximum": 500,
+            "minimum": 100,
+            "title": "Max Tickets Scanned",
+            "type": "integer"
+          },
+          "search_description": {
+            "default": false,
+            "description": "Also match the ticket description (costs 1 extra credit per 100 tickets).",
+            "title": "Search Description",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "find_tickets_by_textArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "find_tickets_by_textDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "describe_ticket_fields",
+      "description": "List ticket fields with their allowed values: statuses (incl. custom), priorities, ticket types, and custom fields (names usable in search_tickets custom_fields).",
+      "inputSchema": {
+        "properties": {},
+        "title": "describe_ticket_fieldsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "describe_ticket_fieldsDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "find_contacts",
+      "description": "Find customers (contacts) by email, phone, name prefix, or company. Provide exactly one criterion.",
+      "inputSchema": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Exact email address.",
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Exact phone or mobile number as stored.",
+            "title": "Phone"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name prefix (autocomplete); returns IDs and names only.",
+            "title": "Name"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Company Id"
+          },
+          "page": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          }
+        },
+        "title": "find_contactsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "find_contactsDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_contact",
+      "description": "Get a customer (contact) profile, optionally with their recent tickets.",
+      "inputSchema": {
+        "properties": {
+          "contact_id": {
+            "minimum": 1,
+            "title": "Contact Id",
+            "type": "integer"
+          },
+          "include_recent_tickets": {
+            "default": true,
+            "description": "Also return this contact's 10 most recent tickets (1 extra call).",
+            "title": "Include Recent Tickets",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "contact_id"
+        ],
+        "title": "get_contactArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "get_contactDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list_companies",
+      "description": "List customer companies (B2B accounts) in the helpdesk.",
+      "inputSchema": {
+        "properties": {
+          "page": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "per_page": {
+            "default": 30,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Per Page",
+            "type": "integer"
+          }
+        },
+        "title": "list_companiesArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "list_companiesDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_company",
+      "description": "Get one company's profile.",
+      "inputSchema": {
+        "properties": {
+          "company_id": {
+            "minimum": 1,
+            "title": "Company Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "company_id"
+        ],
+        "title": "get_companyArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "get_companyDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list_agents",
+      "description": "List support agents (id, name, email). Use to resolve 'assigned to Priya' into an agent_id.",
+      "inputSchema": {
+        "properties": {
+          "page": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          }
+        },
+        "title": "list_agentsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "list_agentsDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list_groups",
+      "description": "List agent groups/teams (id, name). Use to resolve 'the Payments team' into a group_id.",
+      "inputSchema": {
+        "properties": {
+          "page": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          }
+        },
+        "title": "list_groupsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "list_groupsDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "connector_status",
+      "description": "Check connectivity and the remaining Freshdesk API quota. Call this if other tools fail unexpectedly.",
+      "inputSchema": {
+        "properties": {},
+        "title": "connector_statusArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "connector_statusDictOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    }
+  ]
+}
